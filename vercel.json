@@ -1,0 +1,3 @@
+{
+  "rewrites": [{ "source": "/analyse", "destination": "/api/analyse" }]
+}
