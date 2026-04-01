@@ -1,6 +1,23 @@
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '10mb',
+    },
+  },
+};
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
+
+  if (!process.env.GEMINI_API_KEY) {
+    return res.status(500).json({ erreur: 'Clé API Gemini manquante' });
+  }
+
   const { base64Image, mediaType } = req.body;
+
+  if (!base64Image || !mediaType) {
+    return res.status(400).json({ erreur: 'base64Image et mediaType requis' });
+  }
 
   try {
     const response = await fetch(
@@ -12,7 +29,20 @@ export default async function handler(req, res) {
           contents: [{
             parts: [
               { inline_data: { mime_type: mediaType, data: base64Image } },
-              { text: `...ton prompt...` }
+              { text: `Tu es un nutritionniste expert. Analyse cette photo de repas.
+Réponds UNIQUEMENT en JSON valide (sans markdown, sans backticks) :
+{
+  "aliments": [{"nom":"...","portion":"150g","glucides_g":35}],
+  "total_glucides_g": 75,
+  "fourchette_min": 60,
+  "fourchette_max": 90,
+  "dont_sucres_g": 12,
+  "fibres_g": 4,
+  "calories_estimees": 420,
+  "index_glycemique": "Moyen (55-70)",
+  "conseil": "Un conseil nutritionnel court et pratique."
+}
+Si aucune nourriture n'est visible : {"erreur": "Aucun aliment détecté."}` }
             ]
           }]
         })
@@ -21,29 +51,23 @@ export default async function handler(req, res) {
 
     const data = await response.json();
 
-    // ✅ 1. Vérifier que l'API n'a pas renvoyé une erreur
     if (!response.ok) {
-      console.error('Gemini API error:', data);
+      console.error('Gemini error:', data);
       return res.status(500).json({ erreur: `Erreur Gemini : ${data.error?.message || response.status}` });
     }
 
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    console.log('Gemini raw:', text);
 
-    // ✅ 2. Logger pour déboguer (à retirer en prod)
-    console.log('Raw Gemini text:', text);
-
-    // ✅ 3. Extraction robuste du JSON avec regex
     const match = text.match(/\{[\s\S]*\}/);
     if (!match) {
-      console.error('No JSON found in:', text);
-      return res.status(500).json({ erreur: "Aucun JSON trouvé dans la réponse de l'IA." });
+      return res.status(500).json({ erreur: "Aucun JSON dans la réponse." });
     }
 
     try {
       res.json(JSON.parse(match[0]));
-    } catch (e) {
-      console.error('JSON parse error:', e.message, 'on:', match[0]);
-      res.status(500).json({ erreur: "JSON malformé dans la réponse de l'IA." });
+    } catch {
+      res.status(500).json({ erreur: "JSON malformé." });
     }
 
   } catch (err) {
