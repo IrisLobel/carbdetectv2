@@ -142,13 +142,13 @@ async function analyse() {
       body: JSON.stringify({ base64Image, mediaType })
     });
 
-    // Verifie que le serveur a repondu correctement
-    if (!response.ok) {
-      throw new Error(`Erreur serveur (${response.status})`);
-    }
-
     // Parse la reponse JSON
     const json = await response.json();
+
+    // Verifie que le serveur a repondu correctement
+    if (!response.ok) {
+      throw new Error(json.erreur || `Erreur serveur (${response.status})`);
+    }
 
     // Si l'IA n'a pas detecte de nourriture
     if (json.erreur) {
@@ -194,14 +194,23 @@ function displayResults(d) {
   (d.aliments || []).forEach((aliment) => {
     const row = document.createElement('div');
     row.className = 'food-row';
-    row.innerHTML = `
-      <div>
-        <div class="food-name">${aliment.nom}</div>
-        <div style="font-family:'DM Mono',monospace;font-size:.7rem;color:var(--muted);margin-top:2px">
-          ${aliment.portion}
-        </div>
-      </div>
-      <div class="food-carbs">${aliment.glucides_g}g</div>`;
+
+    const info = document.createElement('div');
+    const name = document.createElement('div');
+    name.className = 'food-name';
+    name.textContent = aliment.nom;
+    const portion = document.createElement('div');
+    portion.style.cssText = "font-family:'DM Mono',monospace;font-size:.7rem;color:var(--muted);margin-top:2px";
+    portion.textContent = aliment.portion;
+    info.appendChild(name);
+    info.appendChild(portion);
+
+    const carbs = document.createElement('div');
+    carbs.className = 'food-carbs';
+    carbs.textContent = aliment.glucides_g + 'g';
+
+    row.appendChild(info);
+    row.appendChild(carbs);
     list.appendChild(row);
   });
 

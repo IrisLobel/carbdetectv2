@@ -21,7 +21,7 @@ export default async function handler(req, res) {
 
   try {
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -53,7 +53,17 @@ Si aucune nourriture n'est visible : {"erreur": "Aucun aliment détecté."}` }
 
     if (!response.ok) {
       console.error('Gemini error:', data);
-      return res.status(500).json({ erreur: `Erreur Gemini : ${data.error?.message || response.status}` });
+      const code = data.error?.code || response.status;
+      const erreur = ({
+        400: "L'image n'a pas pu être traitée. Essayez avec une autre photo.",
+        401: "Clé API invalide. Contactez l'administrateur.",
+        403: "Accès refusé au service d'analyse. Contactez l'administrateur.",
+        404: "Le modèle d'IA est indisponible. Réessayez plus tard.",
+        429: "Le plafond d'utilisation de l'IA a été dépassé. Réessayez plus tard.",
+        500: "Le service d'analyse rencontre un problème. Réessayez plus tard.",
+        503: "Le service d'analyse est temporairement surchargé. Réessayez dans quelques instants.",
+      })[code] || "Une erreur inattendue est survenue. Réessayez plus tard.";
+      return res.status(500).json({ erreur });
     }
 
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
