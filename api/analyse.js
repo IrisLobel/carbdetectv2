@@ -21,7 +21,7 @@ export default async function handler(req, res) {
 
   try {
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -69,6 +69,10 @@ Si aucune nourriture n'est visible : {"erreur": "Aucun aliment détecté."}` }
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
     console.log('Gemini raw:', text);
 
+    if (!text) {
+      return res.status(500).json({ erreur: "Aucune réponse de l'IA." });
+    }
+
     const match = text.match(/\{[\s\S]*\}/);
     if (!match) {
       return res.status(500).json({ erreur: "Aucun JSON dans la réponse." });
@@ -76,8 +80,9 @@ Si aucune nourriture n'est visible : {"erreur": "Aucun aliment détecté."}` }
 
     try {
       res.json(JSON.parse(match[0]));
-    } catch {
-      res.status(500).json({ erreur: "JSON malformé." });
+    } catch (err) {
+      console.error('JSON parse error:', err);
+      return res.status(500).json({ erreur: "JSON malformé." });
     }
 
   } catch (err) {
